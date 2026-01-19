@@ -56,7 +56,7 @@ public class MessageHandler(GraphServiceClient graphClient, ILogger logger, stri
         }
 
         // Create list of recipients
-        List<Recipient> recipients = message.To
+        List<Recipient> toRecipients = message.To
         .OfType<MimeKit.MailboxAddress>() // only process mailbox addresses
         .Select(addr => new Recipient
         {
@@ -67,7 +67,41 @@ public class MessageHandler(GraphServiceClient graphClient, ILogger logger, stri
             }
         }).ToList();
 
-        logger.Debug("Recipients list: {Recipients}", string.Join(", ", recipients.Select(r => r.EmailAddress.Address)));
+
+        List<Recipient> ccRecipients = message.Cc
+        .OfType<MimeKit.MailboxAddress>() // only process mailbox addresses
+        .Select(addr => new Recipient
+        {
+            EmailAddress = new EmailAddress
+            {
+                Address = addr.Address,      // plain email only
+                Name = addr.Name             // optional, can be null or empty
+            }
+        }).ToList();
+
+        List<Recipient> bccRecipients = message.Bcc
+        .OfType<MimeKit.MailboxAddress>() // only process mailbox addresses
+        .Select(addr => new Recipient
+        {
+            EmailAddress = new EmailAddress
+            {
+                Address = addr.Address,      // plain email only
+                Name = addr.Name             // optional, can be null or empty
+            }
+        }).ToList();
+
+        if(toRecipients.Count > 0)
+        {
+            logger.Debug("To Recipients list: {Recipients}", string.Join(", ", toRecipients.Select(r => r.EmailAddress?.Address ?? "Unknown")));
+        }
+        if(ccRecipients.Count > 0)
+        {
+            logger.Debug("CC Recipients list: {Recipients}", string.Join(", ", ccRecipients.Select(c => c.EmailAddress?.Address ?? "Unknown")));
+        }
+        if(bccRecipients.Count > 0)
+        {
+            logger.Debug("BCC Recipients list: {Recipients}", string.Join(", ", bccRecipients.Select(b => b.EmailAddress?.Address ?? "Unknown")));
+        }
 
         // Create message 
         SendMailPostRequestBody requestBody = new()
@@ -75,7 +109,9 @@ public class MessageHandler(GraphServiceClient graphClient, ILogger logger, stri
             Message = new Message
             {
                 Subject = message.Subject,
-                ToRecipients = recipients
+                ToRecipients = toRecipients,
+                CcRecipients = ccRecipients,
+                BccRecipients = bccRecipients
             }
         };
         
